@@ -6,6 +6,13 @@ import "core:math"
 SAMPLE_RATE :: 44100
 BUFFER_SIZE :: 1024
 
+A4 :: 440.0
+
+get_freq :: proc(semitones: int) -> f32 {
+    semitone_diff := math.pow(f32(2.0), 1.0 / 12.0)
+    return A4 * math.pow(semitone_diff, f32(semitones))
+}
+
 main :: proc() {
     rl.InitWindow(800, 600, "Hosynth")
 
@@ -25,14 +32,20 @@ main :: proc() {
 
     rl.PlayAudioStream(stream)
 
-    freq := 440
+    freq: f32 = 440.0
     index := 0
 
     rl.SetTargetFPS(60)
     for !rl.WindowShouldClose() {
-        if rl.IsAudioStreamProcessed(stream) && rl.IsKeyDown(.SPACE) {
+        if rl.IsKeyPressed(.UP) {
+            freq *= math.pow(f32(2.0), 1.0/12.0)
+        }
+        else if rl.IsKeyPressed(.DOWN) {
+            freq /= math.pow(f32(2.0), 1.0/12.0)
+        }
+        if rl.IsAudioStreamProcessed(stream) {
             for i in 0..<BUFFER_SIZE {
-                wavelength: int = SAMPLE_RATE/freq
+                wavelength: int = SAMPLE_RATE/int(freq)
                 buffer[i] = math.sin(2.0*math.PI*f32(index)/f32(wavelength))
                 index += 1
 
