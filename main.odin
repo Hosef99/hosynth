@@ -4,6 +4,9 @@ import "core:fmt"
 import rl "vendor:raylib"
 import "core:math"
 
+WIDTH :: 900
+HEIGHT :: 600
+
 SAMPLE_RATE :: 48000
 BUFFER_SIZE :: 2048
 
@@ -98,7 +101,7 @@ main :: proc() {
     }
     keyboard := KEYBOARD
 
-    rl.InitWindow(800, 600, "Hosynth")
+    rl.InitWindow(WIDTH, HEIGHT, "Hosynth")
 
     defer rl.CloseWindow()
 
@@ -147,6 +150,15 @@ main :: proc() {
 
         rl.BeginDrawing()
         rl.ClearBackground(rl.GetColor(0x181818FF))
+
+        points := [BUFFER_SIZE]rl.Vector2{}
+
+        for value, i in buffer {
+            points[i] = {f32(i)/f32(BUFFER_SIZE)*f32(WIDTH), buffer[i]*f32(HEIGHT)/3.0+f32(HEIGHT)/2.0}
+        }
+
+	    rl.DrawLineStrip(raw_data(points[:]), BUFFER_SIZE, rl.Color{255,0,0,255})
+
         rl.EndDrawing()
     }
 }
