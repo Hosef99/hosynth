@@ -10,7 +10,7 @@ HEIGHT :: 600
 SAMPLE_RATE :: 48000
 BUFFER_SIZE :: 2048
 
-C4 :: 261.6
+C3 :: 130.8
 
 offset: f32 = 1.0
 
@@ -57,8 +57,42 @@ calc_note_amp :: proc(note: Note) -> f32 {
 
 get_freq :: proc(semitones: int) -> f32 {
     semitone_diff := math.pow(f32(2.0), 1.0 / 12.0)
-    return C4 * math.pow(semitone_diff, f32(semitones))
+    return C3 * math.pow(semitone_diff, f32(semitones))
 }
+
+Wave :: struct {
+    base: proc(angle: f32) -> f32,
+}
+
+waveform :: proc(wave: Wave, angle: f32) -> f32 {
+    return wave.base(angle)
+}
+
+Synth :: struct {
+    wave: Wave,
+}
+
+sin :: proc(angle: f32) -> f32 {
+    return math.sin(angle)
+}
+
+saw :: proc(angle: f32) -> f32 {
+    angle := math.mod(angle, 2.0*math.PI)
+    if angle < math.PI {
+        return angle / math.PI
+    }
+    return (angle - math.PI) / (math.PI) - 1
+}
+
+square :: proc(angle: f32) -> f32 {
+    angle := math.mod(angle, 2.0*math.PI)
+    if angle < math.PI {
+        return 1
+    }
+    return -1
+}
+
+synth := Synth{{sin}}
 
 set_note :: proc(note: ^Note, buffer: ^[BUFFER_SIZE]f32) {
 
@@ -67,7 +101,7 @@ set_note :: proc(note: ^Note, buffer: ^[BUFFER_SIZE]f32) {
     for i in 0..<BUFFER_SIZE {
         amp := calc_note_amp(note^)
 
-        buffer^[i] += math.sin(2.0 * math.PI * note.phase) * 0.25 * amp
+        buffer^[i] += waveform(synth.wave, 2.0 * math.PI * note.phase) * 0.25 * amp
 
         note.phase += phase_inc
 
@@ -83,7 +117,7 @@ set_note :: proc(note: ^Note, buffer: ^[BUFFER_SIZE]f32) {
     }
 }
 
-KEYBOARD :: [?]rl.KeyboardKey{.Z, .S, .X, .D, .C, .V, .G, .B, .H, .N, .J, .M, .COMMA}
+KEYBOARD :: [?]rl.KeyboardKey{.Q, .TWO, .W, .THREE, .E, .R, .FIVE, .T, .SIX, .Y, .SEVEN, .U, .Z, .S, .X, .D, .C, .V, .G, .B, .H, .N, .J, .M, .COMMA}
 
 notes: [len(KEYBOARD)]Note
 
@@ -148,16 +182,21 @@ main :: proc() {
             rl.UpdateAudioStream(stream, &buffer[0], BUFFER_SIZE)
         }
 
+        // Drawing
         rl.BeginDrawing()
         rl.ClearBackground(rl.GetColor(0x181818FF))
 
-        points := [BUFFER_SIZE]rl.Vector2{}
+        // draw wave shape
+        rl.DrawRectangleLines(10, 10, 200, 100, {255, 255, 255, 255})
 
-        for value, i in buffer {
-            points[i] = {f32(i)/f32(BUFFER_SIZE)*f32(WIDTH), buffer[i]*f32(HEIGHT)/3.0+f32(HEIGHT)/2.0}
+        SEGMENT_SIZE :: 300
+        display_lines: [SEGMENT_SIZE][2]f32
+        for i in 0..<SEGMENT_SIZE {
+            angle := f32(i)/f32(SEGMENT_SIZE)*4.0*math.PI
+            value := waveform(synth.wave, angle)
+            display_lines[i] = {15.0 + f32(i)/f32(SEGMENT_SIZE) * 190.0, 10.0 + 50.0 - value * 45.0}
         }
-
-	    rl.DrawLineStrip(raw_data(points[:]), BUFFER_SIZE, rl.Color{255,0,0,255})
+        rl.DrawLineStrip(raw_data(display_lines[:]), len(display_lines), {255, 0, 0, 255})
 
         rl.EndDrawing()
     }
