@@ -60,28 +60,8 @@ get_freq :: proc(semitones: int) -> f32 {
     return C3 * math.pow(semitone_diff, f32(semitones))
 }
 
-Wave :: struct {
-    base: proc(angle: f32) -> f32,
-}
-
-waveform :: proc(wave: Wave, angle: f32) -> f32 {
-    return wave.base(angle)
-}
-
-Synth :: struct {
-    wave: Wave,
-}
-
 sin :: proc(angle: f32) -> f32 {
     return math.sin(angle)
-}
-
-saw :: proc(angle: f32) -> f32 {
-    angle := math.mod(angle, 2.0*math.PI)
-    if angle < math.PI {
-        return angle / math.PI
-    }
-    return (angle - math.PI) / (math.PI) - 1
 }
 
 square :: proc(angle: f32) -> f32 {
@@ -92,7 +72,42 @@ square :: proc(angle: f32) -> f32 {
     return -1
 }
 
-synth := Synth{{sin}}
+triangle :: proc(angle: f32) -> f32 {
+    angle := math.mod(angle, 2.0*math.PI)
+    if angle < math.PI / 2.0 {
+        return angle / (math.PI / 2.0)
+    } else if angle < math.PI {
+        return 1 - (angle - math.PI / 2.0) / (math.PI / 2.0)
+    } else if angle < 3.0 * math.PI / 2.0 {
+        return -(angle - math.PI) / (math.PI / 2.0)
+    } else {
+        return -(1 - (angle - 3.0 * math.PI / 2.0) / (math.PI / 2.0))
+    }
+}
+
+saw :: proc(angle: f32) -> f32 {
+    angle := math.mod(angle, 2.0*math.PI)
+    if angle < math.PI {
+        return angle / math.PI
+    }
+    return (angle - math.PI) / (math.PI) - 1
+}
+
+basic_waves := [4]proc(angle: f32) -> f32{sin, square, triangle, saw}
+
+Wave :: struct {
+    base: int,
+}
+
+waveform :: proc(wave: Wave, angle: f32) -> f32 {
+    return basic_waves[wave.base](angle)
+}
+
+Synth :: struct {
+    wave: Wave,
+}
+
+synth := Synth{{2}}
 
 set_note :: proc(note: ^Note, buffer: ^[BUFFER_SIZE]f32) {
 
@@ -101,7 +116,7 @@ set_note :: proc(note: ^Note, buffer: ^[BUFFER_SIZE]f32) {
     for i in 0..<BUFFER_SIZE {
         amp := calc_note_amp(note^)
 
-        buffer^[i] += waveform(synth.wave, 2.0 * math.PI * note.phase) * 0.25 * amp
+        buffer^[i] += waveform(synth.wave, 2.0 * math.PI * note.phase) * 0.5 * amp
 
         note.phase += phase_inc
 
@@ -125,6 +140,13 @@ last_time: f32 = 0.0
 dt: f32
 
 e_piano := Envelope{20, 500, 0.70, 20}
+
+sin_rect := rl.Rectangle{10, 115, 50, 30}
+square_rect := rl.Rectangle{10+50, 115, 50, 30}
+triangle_rect := rl.Rectangle{10+100, 115, 50, 30}
+saw_rect := rl.Rectangle{10+150, 115, 50, 30}
+
+basic_wave_rects := [4]rl.Rectangle{sin_rect, square_rect, triangle_rect, saw_rect}
 
 main :: proc() {
     t := f32(rl.GetTime())
@@ -158,6 +180,8 @@ main :: proc() {
         t = f32(rl.GetTime())
         dt = t - last_time
         last_time = t
+
+        mouse_pos := rl.GetMousePosition()
 
         for note, i in notes {
             if rl.IsKeyPressed(keyboard[i]) {
@@ -197,6 +221,34 @@ main :: proc() {
             display_lines[i] = {15.0 + f32(i)/f32(SEGMENT_SIZE) * 190.0, 10.0 + 50.0 - value * 45.0}
         }
         rl.DrawLineStrip(raw_data(display_lines[:]), len(display_lines), {255, 0, 0, 255})
+
+        rl.DrawRectangleLines(5, 5, 210, HEIGHT-10, {255, 255, 255, 255})
+
+        // Handle event
+        for wave in 0..<len(basic_wave_rects) {
+            if rl.CheckCollisionPointRec(mouse_pos, basic_wave_rects[wave]) && rl.IsMouseButtonPressed(.LEFT) {
+                synth.wave.base = wave
+            }
+        }
+        
+        // Draw Waveform UIs
+        SEGMENT :: 50
+        waveform_lines: [SEGMENT][2]f32
+        for wave in 0..<len(basic_waves) {
+            for i in 0..<SEGMENT {
+                angle := f32(i)/f32(SEGMENT)*2.0*math.PI
+                value := basic_waves[wave](angle)
+                waveform_lines[i] = {10.0 + 50.0 * f32(wave) + f32(i)/f32(SEGMENT) * 50.0, 115.0 + 15.0 - value * 10.0}
+            }
+
+            selected := synth.wave.base == wave
+
+            color := rl.RED if selected else rl.WHITE
+            border := rl.GREEN if selected else rl.WHITE
+
+            rl.DrawLineStrip(raw_data(waveform_lines[:]), len(waveform_lines), color)
+            rl.DrawRectangleLinesEx(basic_wave_rects[wave], 1.0, border)
+        }
 
         rl.EndDrawing()
     }
