@@ -12,8 +12,6 @@ BUFFER_SIZE :: 2048
 
 C3 :: 130.8
 
-offset: f32 = 1.0
-
 Envelope :: struct { // all time-related values are in ms
     attack_time, decay_time, sustain_level, release_time: f32,
 }
@@ -97,6 +95,7 @@ basic_waves := [4]proc(angle: f32) -> f32{sin, square, triangle, saw}
 
 Wave :: struct {
     base: int,
+    pitch: f32,
 }
 
 waveform :: proc(wave: Wave, angle: f32) -> f32 {
@@ -107,11 +106,11 @@ Synth :: struct {
     wave: Wave,
 }
 
-synth := Synth{{2}}
+synth := Synth{{2, 0.5}}
 
 set_note :: proc(note: ^Note, buffer: ^[BUFFER_SIZE]f32) {
-
-    phase_inc := note.freq / f32(SAMPLE_RATE)
+    pitch_mult := math.pow(2.0, synth.wave.pitch)
+    phase_inc := note.freq * pitch_mult / f32(SAMPLE_RATE)
 
     for i in 0..<BUFFER_SIZE {
         amp := calc_note_amp(note^)
