@@ -16,20 +16,24 @@ Envelope :: struct { // all time-related values are in ms
     attack_time, decay_time, sustain_level, release_time: f32,
 }
 
+Unison_Voice :: struct {
+    phase: f32,
+}
+
 Note :: struct {
     playing: bool,
     freq: f32,
-    phase: f32,
+
+    unison: []Unison_Voice,
     
     press_samples, release_samples: int,
     release_start_amp: f32,
-    env: Envelope,
 }
 
-calc_note_amp :: proc(note: Note) -> f32 {
-    attack_samples := int(note.env.attack_time * SAMPLE_RATE / 1000)
-    decay_samples := int(note.env.decay_time * SAMPLE_RATE / 1000)
-    release_samples := int(note.env.release_time * SAMPLE_RATE / 1000)
+calc_note_amp :: proc(note: Note, env: Envelope) -> f32 {
+    attack_samples := int(env.attack_time * SAMPLE_RATE / 1000)
+    decay_samples := int(env.decay_time * SAMPLE_RATE / 1000)
+    release_samples := int(env.release_time * SAMPLE_RATE / 1000)
 
     if note.playing {
         decay_cutoff := attack_samples + decay_samples
@@ -39,9 +43,9 @@ calc_note_amp :: proc(note: Note) -> f32 {
         } else if note.press_samples < decay_cutoff { // Decay section
             // Lerp between attack level and sustain level
             ratio := f32(note.press_samples - attack_samples) / f32(decay_samples)
-            return ratio * note.env.sustain_level + (1 - ratio)
+            return ratio * env.sustain_level + (1 - ratio)
         } else { // Sustain section
-            return note.env.sustain_level
+            return env.sustain_level
         }
     } else { // release
         if note.release_samples < release_samples {
@@ -56,6 +60,10 @@ calc_note_amp :: proc(note: Note) -> f32 {
 get_freq :: proc(semitones: int) -> f32 {
     semitone_diff := math.pow(f32(2.0), 1.0 / 12.0)
     return C3 * math.pow(semitone_diff, f32(semitones))
+}
+
+detune_freq :: proc(freq, cents: f32) -> f32 {
+    return freq * math.pow(2.0, cents / 1200.0)
 }
 
 sin :: proc(angle: f32) -> f32 {
@@ -91,11 +99,17 @@ saw :: proc(angle: f32) -> f32 {
     return (angle - math.PI) / (math.PI) - 1
 }
 
-basic_waves := [4]proc(angle: f32) -> f32{sin, square, triangle, saw}
+basic_waves := [4](proc(angle: f32) -> f32){sin, square, triangle, saw}
+
+Unison :: struct {
+    voices: int,
+    detune: f32,
+}
 
 Wave :: struct {
     base: int,
     pitch: f32,
+    unison: Unison,
 }
 
 waveform :: proc(wave: Wave, angle: f32) -> f32 {
@@ -104,23 +118,40 @@ waveform :: proc(wave: Wave, angle: f32) -> f32 {
 
 Synth :: struct {
     wave: Wave,
+    env: Envelope,
 }
 
-synth := Synth{{2, 0.5}}
+e_piano := Envelope{20, 500, 0.70, 20}
+
+synth := Synth{{2, 0, {3, 10}}, e_piano}
+
+master_gain: f32 = 0.2
 
 set_note :: proc(note: ^Note, buffer: ^[BUFFER_SIZE]f32) {
     pitch_mult := math.pow(2.0, synth.wave.pitch)
-    phase_inc := note.freq * pitch_mult / f32(SAMPLE_RATE)
+
+    voices := synth.wave.unison.voices
+    unison_gain := 1.0 / math.sqrt(f32(voices))
 
     for i in 0..<BUFFER_SIZE {
-        amp := calc_note_amp(note^)
+        amp := calc_note_amp(note^, synth.env)
 
-        buffer^[i] += waveform(synth.wave, 2.0 * math.PI * note.phase) * 0.5 * amp
+        for j in 0..<voices {
+            offset := j - (voices - 1) / 2
 
-        note.phase += phase_inc
+            freq := detune_freq(note.freq, f32(offset) * synth.wave.unison.detune)
 
-        if note.phase >= 1.0 {
-            note.phase -= 1.0
+            phase_inc := freq * pitch_mult / f32(SAMPLE_RATE)
+
+            sample := waveform(synth.wave, 2.0 * math.PI * note.unison[j].phase)
+
+            buffer^[i] += sample * unison_gain * amp
+
+            note.unison[j].phase += phase_inc
+
+            if note.unison[j].phase >= 1.0 {
+                note.unison[j].phase -= 1.0
+            }
         }
 
         if note.playing {
@@ -138,8 +169,6 @@ notes: [len(KEYBOARD)]Note
 last_time: f32 = 0.0
 dt: f32
 
-e_piano := Envelope{20, 500, 0.70, 20}
-
 sin_rect := rl.Rectangle{10, 115, 50, 30}
 square_rect := rl.Rectangle{10+50, 115, 50, 30}
 triangle_rect := rl.Rectangle{10+100, 115, 50, 30}
@@ -152,7 +181,7 @@ main :: proc() {
 
     for note, i in notes {
         notes[i].freq = get_freq(i)
-        notes[i].env = e_piano
+        notes[i].unison = make([]Unison_Voice, 3)
     }
     keyboard := KEYBOARD
 
@@ -187,7 +216,7 @@ main :: proc() {
                 notes[i].playing = true
                 notes[i].release_samples = 0
             } else if rl.IsKeyReleased(keyboard[i]) {
-                notes[i].release_start_amp = calc_note_amp(notes[i])
+                notes[i].release_start_amp = calc_note_amp(notes[i], synth.env)
                 notes[i].playing = false
                 notes[i].press_samples = 0
             }
@@ -200,7 +229,8 @@ main :: proc() {
             }
 
             for it, i in buffer {
-                buffer[i] = clamp(it, -1, 1)
+                buffer[i] *= master_gain
+                buffer[i] = clamp(buffer[i], -1, 1)
             }
             rl.UpdateAudioStream(stream, &buffer[0], BUFFER_SIZE)
         }
