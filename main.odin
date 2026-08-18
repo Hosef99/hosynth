@@ -24,14 +24,14 @@ basic_wave_rects := [4]rl.Rectangle{sin_rect, square_rect, triangle_rect, saw_re
 main :: proc() {
     e_piano := Envelope{20, 500, 0.70, 20}
     synth := Synth{
-        wave = {2, 0, {3, 10}},
+        wave = {.Triangle, 0, {3, 30}},
         env = e_piano,
-        gain = 0.2,
+        gain = 0.4,
     }
 
     for &note, i in synth.notes {
         note.freq = get_freq(i)
-        note.unison = make([]Unison_Voice, 3)
+        note.unison = make([]Unison_Voice, 5)
     }
     keyboard := KEYBOARD
 
@@ -82,7 +82,7 @@ main :: proc() {
         display_lines: [SEGMENT_SIZE][2]f32
         for i in 0..<SEGMENT_SIZE {
             angle := f32(i)/f32(SEGMENT_SIZE)*4.0*math.PI
-            value := waveform(synth.wave, angle)
+            value := basic_waveform_display(synth.wave.base, angle)
             display_lines[i] = {15.0 + f32(i)/f32(SEGMENT_SIZE) * 190.0, 10.0 + 50.0 - value * 45.0}
         }
         rl.DrawLineStrip(raw_data(display_lines[:]), len(display_lines), {255, 0, 0, 255})
@@ -92,17 +92,17 @@ main :: proc() {
         // Handle event
         for wave in 0..<len(basic_wave_rects) {
             if rl.CheckCollisionPointRec(mouse_pos, basic_wave_rects[wave]) && rl.IsMouseButtonPressed(.LEFT) {
-                synth.wave.base = wave
+                synth.wave.base = Waveform(wave)
             }
         }
         
         // Draw Waveform UIs
         SEGMENT :: 50
         waveform_lines: [SEGMENT][2]f32
-        for wave in 0..<len(basic_waves) {
+        for wave, index in Waveform {
             for i in 0..<SEGMENT {
                 angle := f32(i)/f32(SEGMENT)*2.0*math.PI
-                value := basic_waves[wave](angle)
+                value := basic_waveform_display(wave, angle)
                 waveform_lines[i] = {10.0 + 50.0 * f32(wave) + f32(i)/f32(SEGMENT) * 50.0, 115.0 + 15.0 - value * 10.0}
             }
 

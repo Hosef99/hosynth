@@ -26,7 +26,7 @@ Unison :: struct {
 }
 
 Wave :: struct {
-    base: int,
+    base: Waveform,
     pitch: f32,
     unison: Unison,
 }
@@ -74,10 +74,6 @@ detune_freq :: proc(freq, cents: f32) -> f32 {
     return freq * math.pow(2.0, cents / 1200.0)
 }
 
-waveform :: proc(wave: Wave, angle: f32) -> f32 {
-    return basic_waves[wave.base](angle)
-}
-
 set_note :: proc(note: ^Note, synth: ^Synth, buffer: ^[BUFFER_SIZE]f32) {
     pitch_mult := math.pow(2.0, synth.wave.pitch)
 
@@ -94,7 +90,7 @@ set_note :: proc(note: ^Note, synth: ^Synth, buffer: ^[BUFFER_SIZE]f32) {
 
             phase_inc := freq * pitch_mult / f32(SAMPLE_RATE)
 
-            sample := waveform(synth.wave, 2.0 * math.PI * note.unison[j].phase)
+            sample := basic_waveform(synth.wave.base, 2.0 * math.PI * note.unison[j].phase)
 
             buffer^[i] += sample * unison_gain * amp
 
