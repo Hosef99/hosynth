@@ -14,7 +14,7 @@ Note :: struct {
     playing: bool,
     freq: f32,
 
-    unison: []Unison_Voice,
+    unison: [11]Unison_Voice,
     
     press_samples, release_samples: int,
     release_start_amp: f32,

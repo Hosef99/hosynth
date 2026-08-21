@@ -14,24 +14,16 @@ C3 :: 130.8
 
 KEYBOARD :: [?]rl.KeyboardKey{.Q, .TWO, .W, .THREE, .E, .R, .FIVE, .T, .SIX, .Y, .SEVEN, .U, .Z, .S, .X, .D, .C, .V, .G, .B, .H, .N, .J, .M, .COMMA}
 
-sin_rect := rl.Rectangle{10, 115, 50, 30}
-square_rect := rl.Rectangle{10+50, 115, 50, 30}
-triangle_rect := rl.Rectangle{10+100, 115, 50, 30}
-saw_rect := rl.Rectangle{10+150, 115, 50, 30}
-
-basic_wave_rects := [4]rl.Rectangle{sin_rect, square_rect, triangle_rect, saw_rect}
-
 main :: proc() {
     e_piano := Envelope{20, 500, 0.70, 20}
     synth := Synth{
-        wave = {.Triangle, 0, {3, 30}},
+        wave = {.Triangle, 0, {3, 10}},
         env = e_piano,
         gain = 0.4,
     }
 
     for &note, i in synth.notes {
         note.freq = get_freq(i)
-        note.unison = make([]Unison_Voice, 5)
     }
     keyboard := KEYBOARD
 
@@ -57,6 +49,10 @@ main :: proc() {
         mouse_pos := rl.GetMousePosition()
 
         handle_input(&synth)
+
+        synth.wave.unison.voices = int(slider_steps(unison_slider, []f32{1, 3, 5, 7, 9, 11}))
+        unison_slider.val = f32(synth.wave.unison.voices - 1) / 10.0
+        synth.wave.unison.detune = slider_float(detune_slider, 0, 50)
 
         if rl.IsAudioStreamProcessed(audio.stream) {
             process_audio(audio, &synth)
