@@ -59,13 +59,13 @@ basic_waveform_display :: proc(waveform: Waveform, angle: f32) -> f32 {
 basic_waveform :: proc(waveform: Waveform, angle: f32) -> f32 {
     switch waveform {
     case .Sine:
-        return sin(angle) * 0.8695
+        return sin(angle)
     case .Square:
-        return square(angle) * 0.6087
+        return square(angle) * 0.25
     case .Triangle:
         return triangle(angle)
     case .Saw:
-        return saw(angle) * 0.6087
+        return saw(angle) * 0.25
     }
     return 0.0
 }

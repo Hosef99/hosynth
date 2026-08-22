@@ -6,6 +6,7 @@ import rl "vendor:raylib"
 Slider :: struct {
     rect: rl.Rectangle,
     val: f32, // 0 to 1
+    default: f32,
     active: bool,
 }
 
@@ -27,6 +28,10 @@ slider_update :: proc(slider: ^Slider, mouse: rl.Vector2) {
     if slider.active {
         pos := math.clamp(mouse.x, f32(rect.x), f32(rect.x + rect.width)) - rect.x
         slider.val = pos / f32(rect.width)
+    }
+
+    if rl.CheckCollisionPointRec(mouse, rect) && rl.IsMouseButtonPressed(.RIGHT) {
+        slider.val = slider.default
     }
 }
 
@@ -52,11 +57,25 @@ saw_rect := rl.Rectangle{10+150, 115, 50, 30}
 unison_slider := Slider{
     rect = {10, 190, 200, 20},
     val = 0.2,
+    default = 0,
 }
 
 detune_slider := Slider{
     rect = {10, 250, 200, 20},
     val = 0.2,
+    default = 0,
+}
+
+octave_slider := Slider{
+    rect = {10, 310, 200, 20},
+    val = 0.5,
+    default = 0.5,
+}
+
+semitone_slider := Slider{
+    rect = {10, 370, 200, 20},
+    val = 0.5,
+    default = 0.5,
 }
 
 basic_wave_rects := [4]rl.Rectangle{sin_rect, square_rect, triangle_rect, saw_rect}
@@ -78,6 +97,8 @@ handle_input :: proc(synth: ^Synth) {
 handle_ui_input :: proc(synth: ^Synth, mouse_pos: rl.Vector2) {
     slider_update(&unison_slider, mouse_pos)
     slider_update(&detune_slider, mouse_pos)
+    slider_update(&octave_slider, mouse_pos)
+    slider_update(&semitone_slider, mouse_pos)
     for wave in 0..<len(basic_wave_rects) {
         if rl.CheckCollisionPointRec(mouse_pos, basic_wave_rects[wave]) && rl.IsMouseButtonPressed(.LEFT) {
             synth.wave.base = Waveform(wave)
@@ -131,4 +152,14 @@ draw_ui :: proc(synth: Synth) {
     rl.DrawText(rl.TextFormat("%.2f", synth.wave.unison.detune), 130, 220, 20, rl.WHITE)
 
     slider_draw(detune_slider)
+
+    rl.DrawText("Octave:", 50, 280, 20, rl.WHITE)
+    rl.DrawText(rl.TextFormat("%.2f", synth.wave.octave), 130, 280, 20, rl.WHITE)
+
+    slider_draw(octave_slider)
+
+    rl.DrawText("Semitone:", 40, 340, 20, rl.WHITE)
+    rl.DrawText(rl.TextFormat("%.2f", synth.wave.semitone), 135, 340, 20, rl.WHITE)
+
+    slider_draw(semitone_slider)
 }

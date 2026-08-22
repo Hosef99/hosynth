@@ -27,8 +27,9 @@ Unison :: struct {
 
 Wave :: struct {
     base: Waveform,
-    pitch: f32,
     unison: Unison,
+    octave: f32,
+    semitone: f32,
 }
 
 Synth :: struct {
@@ -75,7 +76,7 @@ detune_freq :: proc(freq, cents: f32) -> f32 {
 }
 
 set_note :: proc(note: ^Note, synth: ^Synth, buffer: ^[BUFFER_SIZE]f32) {
-    pitch_mult := math.pow(2.0, synth.wave.pitch)
+    octave_mult := math.pow(2.0, synth.wave.octave) * math.pow(2.0, synth.wave.semitone / 12.0)
 
     voices := synth.wave.unison.voices
     unison_gain := 1.0 / math.sqrt(f32(voices))
@@ -88,7 +89,7 @@ set_note :: proc(note: ^Note, synth: ^Synth, buffer: ^[BUFFER_SIZE]f32) {
 
             freq := detune_freq(note.freq, f32(offset) * synth.wave.unison.detune)
 
-            phase_inc := freq * pitch_mult / f32(SAMPLE_RATE)
+            phase_inc := freq * octave_mult / f32(SAMPLE_RATE)
 
             sample := basic_waveform(synth.wave.base, 2.0 * math.PI * note.unison[j].phase)
 
