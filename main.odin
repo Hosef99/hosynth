@@ -17,18 +17,28 @@ KEYBOARD :: [?]rl.KeyboardKey{.Q, .TWO, .W, .THREE, .E, .R, .FIVE, .T, .SIX, .Y,
 main :: proc() {
     e_piano := Envelope{20, 500, 0.70, 20}
     synth := Synth{
-        wave = {
-            base = .Triangle,
-            unison = {
-                voices = 3,
-                detune = 10,
-            },
-            octave = 0,
-            semitone = 0,
-            level = 1,
-        },
         env = e_piano,
         gain = 0.4,
+    }
+
+    for &osc in synth.oscs {
+        osc = default_osc()
+    }
+
+    // Defaults to the 0th oscillator
+    synth.current_osc = &synth.oscs[0]
+    synth.current_osc_index = 0
+
+    // Oscillator default setting
+    synth.current_osc^ = Oscillator{
+        base = .Triangle,
+        unison = {
+            voices = 3,
+            detune = 10,
+        },
+        octave = 0,
+        semitone = 0,
+        level = 1,
     }
 
     for &note, i in synth.notes {
@@ -59,15 +69,15 @@ main :: proc() {
 
         handle_input(&synth)
 
-        synth.wave.unison.voices = int(slider_steps(unison_slider, []f32{1, 3, 5, 7, 9, 11}))
+        synth.current_osc.unison.voices = int(slider_steps(unison_slider, []f32{1, 3, 5, 7, 9, 11}))
         // SNAPPING
-        unison_slider.val = f32(synth.wave.unison.voices - 1) / 10.0
-        synth.wave.unison.detune = slider_float(detune_slider, 0, 50)
-        synth.wave.octave = f32(slider_int(octave_slider, -2, 2))
-        octave_slider.val = (synth.wave.octave + 2) / 4.0
-        synth.wave.semitone = slider_float(semitone_slider, -12, 12)
-        synth.wave.phase = slider_float(phase_slider, 0, 360)
-        synth.wave.level = level_slider.val
+        unison_slider.val = f32(synth.current_osc.unison.voices - 1) / 10.0
+        synth.current_osc.unison.detune = slider_float(detune_slider, 0, 50)
+        synth.current_osc.octave = f32(slider_int(octave_slider, -2, 2))
+        octave_slider.val = (synth.current_osc.octave + 2) / 4.0
+        synth.current_osc.semitone = slider_float(semitone_slider, -12, 12)
+        synth.current_osc.phase = slider_float(phase_slider, 0, 360)
+        synth.current_osc.level = level_slider.val
 
         if rl.IsAudioStreamProcessed(audio.stream) {
             process_audio(audio, &synth)

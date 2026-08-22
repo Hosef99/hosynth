@@ -25,7 +25,7 @@ Unison :: struct {
     detune: f32,
 }
 
-Wave :: struct {
+Oscillator :: struct {
     base: Waveform,
     unison: Unison,
     octave: f32,
@@ -35,10 +35,23 @@ Wave :: struct {
 }
 
 Synth :: struct {
-    wave: Wave,
+    oscs: [3]Oscillator,
+    current_osc: ^Oscillator,
+    current_osc_index: int,
     env: Envelope,
     notes: [len(KEYBOARD)]Note,
     gain: f32,
+}
+
+default_osc :: proc() -> Oscillator {
+    return Oscillator{
+        base = .Sine,
+        unison = {1, 10},
+        octave = 0,
+        semitone = 0,
+        phase = 0,
+        level = 1,
+    }
 }
 
 calc_note_amp :: proc(note: Note, env: Envelope) -> f32 {
@@ -78,9 +91,9 @@ detune_freq :: proc(freq, cents: f32) -> f32 {
 }
 
 set_note :: proc(note: ^Note, synth: ^Synth, buffer: ^[BUFFER_SIZE]f32) {
-    octave_mult := math.pow(2.0, synth.wave.octave) * math.pow(2.0, synth.wave.semitone / 12.0)
+    octave_mult := math.pow(2.0, synth.current_osc.octave) * math.pow(2.0, synth.current_osc.semitone / 12.0)
 
-    voices := synth.wave.unison.voices
+    voices := synth.current_osc.unison.voices
     unison_gain := 1.0 / math.sqrt(f32(voices))
 
     for i in 0..<BUFFER_SIZE {
@@ -89,13 +102,13 @@ set_note :: proc(note: ^Note, synth: ^Synth, buffer: ^[BUFFER_SIZE]f32) {
         for j in 0..<voices {
             offset := j - (voices - 1) / 2
 
-            freq := detune_freq(note.freq, f32(offset) * synth.wave.unison.detune)
+            freq := detune_freq(note.freq, f32(offset) * synth.current_osc.unison.detune)
 
             phase_inc := freq * octave_mult / f32(SAMPLE_RATE)
 
-            sample := basic_waveform(synth.wave.base, 2.0 * math.PI * note.unison[j].phase + synth.wave.phase)
+            sample := basic_waveform(synth.current_osc.base, 2.0 * math.PI * note.unison[j].phase + synth.current_osc.phase)
 
-            buffer^[i] += sample * unison_gain * amp * synth.wave.level
+            buffer^[i] += sample * unison_gain * amp * synth.current_osc.level
 
             note.unison[j].phase += phase_inc
 
