@@ -17,7 +17,16 @@ KEYBOARD :: [?]rl.KeyboardKey{.Q, .TWO, .W, .THREE, .E, .R, .FIVE, .T, .SIX, .Y,
 main :: proc() {
     e_piano := Envelope{20, 500, 0.70, 20}
     synth := Synth{
-        wave = {.Triangle, {3, 10}, 0, 0},
+        wave = {
+            base = .Triangle,
+            unison = {
+                voices = 3,
+                detune = 10,
+            },
+            octave = 0,
+            semitone = 0,
+            level = 1,
+        },
         env = e_piano,
         gain = 0.4,
     }
@@ -54,8 +63,11 @@ main :: proc() {
         // SNAPPING
         unison_slider.val = f32(synth.wave.unison.voices - 1) / 10.0
         synth.wave.unison.detune = slider_float(detune_slider, 0, 50)
-        synth.wave.octave = slider_float(octave_slider, -3, 3)
+        synth.wave.octave = f32(slider_int(octave_slider, -2, 2))
+        octave_slider.val = (synth.wave.octave + 2) / 4.0
         synth.wave.semitone = slider_float(semitone_slider, -12, 12)
+        synth.wave.phase = slider_float(phase_slider, 0, 360)
+        synth.wave.level = level_slider.val
 
         if rl.IsAudioStreamProcessed(audio.stream) {
             process_audio(audio, &synth)

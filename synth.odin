@@ -30,6 +30,8 @@ Wave :: struct {
     unison: Unison,
     octave: f32,
     semitone: f32,
+    phase: f32,
+    level: f32,
 }
 
 Synth :: struct {
@@ -91,9 +93,9 @@ set_note :: proc(note: ^Note, synth: ^Synth, buffer: ^[BUFFER_SIZE]f32) {
 
             phase_inc := freq * octave_mult / f32(SAMPLE_RATE)
 
-            sample := basic_waveform(synth.wave.base, 2.0 * math.PI * note.unison[j].phase)
+            sample := basic_waveform(synth.wave.base, 2.0 * math.PI * note.unison[j].phase + synth.wave.phase)
 
-            buffer^[i] += sample * unison_gain * amp
+            buffer^[i] += sample * unison_gain * amp * synth.wave.level
 
             note.unison[j].phase += phase_inc
 

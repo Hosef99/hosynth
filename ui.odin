@@ -78,6 +78,18 @@ semitone_slider := Slider{
     default = 0.5,
 }
 
+phase_slider := Slider{
+    rect = {10, 430, 200, 20},
+    val = 0.0,
+    default = 0.0,
+}
+
+level_slider := Slider{
+    rect = {10, 490, 200, 20},
+    val = 1.0,
+    default = 1.0,
+}
+
 basic_wave_rects := [4]rl.Rectangle{sin_rect, square_rect, triangle_rect, saw_rect}
 
 handle_input :: proc(synth: ^Synth) {
@@ -99,6 +111,8 @@ handle_ui_input :: proc(synth: ^Synth, mouse_pos: rl.Vector2) {
     slider_update(&detune_slider, mouse_pos)
     slider_update(&octave_slider, mouse_pos)
     slider_update(&semitone_slider, mouse_pos)
+    slider_update(&phase_slider, mouse_pos)
+    slider_update(&level_slider, mouse_pos)
     for wave in 0..<len(basic_wave_rects) {
         if rl.CheckCollisionPointRec(mouse_pos, basic_wave_rects[wave]) && rl.IsMouseButtonPressed(.LEFT) {
             synth.wave.base = Waveform(wave)
@@ -162,4 +176,14 @@ draw_ui :: proc(synth: Synth) {
     rl.DrawText(rl.TextFormat("%.2f", synth.wave.semitone), 135, 340, 20, rl.WHITE)
 
     slider_draw(semitone_slider)
+
+    rl.DrawText("Phase:", 50, 400, 20, rl.WHITE)
+    rl.DrawText(rl.TextFormat("%.2f", synth.wave.phase), 120, 400, 20, rl.WHITE)
+
+    slider_draw(phase_slider)
+
+    rl.DrawText("Level:", 50, 460, 20, rl.WHITE)
+    rl.DrawText(rl.TextFormat("%.2f", synth.wave.level), 120, 460, 20, rl.WHITE)
+
+    slider_draw(level_slider)
 }
