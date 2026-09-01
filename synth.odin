@@ -32,6 +32,7 @@ Oscillator :: struct {
     semitone: f32,
     phase: f32,
     level: f32,
+    muted: bool,
 }
 
 Synth :: struct {
@@ -51,6 +52,7 @@ default_osc :: proc() -> Oscillator {
         semitone = 0,
         phase = 0,
         level = 1,
+        muted = true,
     }
 }
 
@@ -91,36 +93,39 @@ detune_freq :: proc(freq, cents: f32) -> f32 {
 }
 
 set_note :: proc(note: ^Note, synth: ^Synth, buffer: ^[BUFFER_SIZE]f32) {
-    octave_mult := math.pow(2.0, synth.current_osc.octave) * math.pow(2.0, synth.current_osc.semitone / 12.0)
-
-    voices := synth.current_osc.unison.voices
-    unison_gain := 1.0 / math.sqrt(f32(voices))
-
-    for i in 0..<BUFFER_SIZE {
-        amp := calc_note_amp(note^, synth.env)
-
-        for j in 0..<voices {
-            offset := j - (voices - 1) / 2
-
-            freq := detune_freq(note.freq, f32(offset) * synth.current_osc.unison.detune)
-
-            phase_inc := freq * octave_mult / f32(SAMPLE_RATE)
-
-            sample := basic_waveform(synth.current_osc.base, 2.0 * math.PI * note.unison[j].phase + synth.current_osc.phase)
-
-            buffer^[i] += sample * unison_gain * amp * synth.current_osc.level
-
-            note.unison[j].phase += phase_inc
-
-            if note.unison[j].phase >= 1.0 {
-                note.unison[j].phase -= 1.0
+    for &osc, index in synth.oscs {
+        octave_mult := math.pow(2.0, osc.octave) * math.pow(2.0, osc.semitone / 12.0)
+        voices := osc.unison.voices
+        unison_gain := 1.0 / math.sqrt(f32(voices))
+        for i in 0..<BUFFER_SIZE {
+            amp := calc_note_amp(note^, synth.env)
+            if osc.muted {
+                continue
             }
-        }
 
-        if note.playing {
-            note.press_samples += 1
-        } else {
-            note.release_samples += 1
+            for j in 0..<voices {
+                offset := j - (voices - 1) / 2
+
+                freq := detune_freq(note.freq, f32(offset) * osc.unison.detune)
+
+                phase_inc := freq * octave_mult / f32(SAMPLE_RATE)
+
+                sample := basic_waveform(osc.base, 2.0 * math.PI * note.unison[j].phase + osc.phase)
+
+                buffer^[i] += sample * unison_gain * amp * osc.level
+
+                note.unison[j].phase += phase_inc
+
+                if note.unison[j].phase >= 1.0 {
+                    note.unison[j].phase -= 1.0
+                }
+            }
+
+            if note.playing {
+                note.press_samples += 1
+            } else {
+                note.release_samples += 1
+            }
         }
     }
 }

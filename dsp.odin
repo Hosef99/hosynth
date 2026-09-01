@@ -69,3 +69,7 @@ basic_waveform :: proc(waveform: Waveform, angle: f32) -> f32 {
     }
     return 0.0
 }
+
+db_to_ratio :: proc(db: f32) -> f32 {
+    return math.pow(10.0, db / 20.0)
+}

@@ -39,6 +39,7 @@ main :: proc() {
         octave = 0,
         semitone = 0,
         level = 1,
+        muted = false,
     }
 
     for &note, i in synth.notes {
@@ -77,7 +78,14 @@ main :: proc() {
         octave_slider.val = (synth.current_osc.octave + 2) / 4.0
         synth.current_osc.semitone = slider_float(semitone_slider, -12, 12)
         synth.current_osc.phase = slider_float(phase_slider, 0, 360)
-        synth.current_osc.level = level_slider.val
+        // synth.current_osc.level = level_slider.val
+        for &osc, index in synth.oscs {
+            if osc_level_sliders[index].val == 0 {
+                osc.level = 0
+            } else {
+                osc.level = db_to_ratio(slider_float(osc_level_sliders[index]^, -24, 3))
+            }
+        }
 
         if rl.IsAudioStreamProcessed(audio.stream) {
             process_audio(audio, &synth)

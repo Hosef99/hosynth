@@ -10,14 +10,24 @@ Slider :: struct {
     active: bool,
 }
 
-slider_draw :: proc(slider: Slider) {
+slider_draw_h :: proc(slider: Slider) {
     rect := slider.rect
     rect.width = rect.width * slider.val
     rl.DrawRectangleRec(rect, rl.WHITE)
     rl.DrawRectangleLinesEx(slider.rect, 3, rl.LIGHTGRAY)
 }
 
-slider_update :: proc(slider: ^Slider, mouse: rl.Vector2) {
+slider_draw_v :: proc(slider: Slider) {
+    rect := slider.rect
+
+    rect.height = rect.height * slider.val
+    rect.y += slider.rect.height - rect.height
+
+    rl.DrawRectangleRec(rect, rl.WHITE)
+    rl.DrawRectangleLinesEx(slider.rect, 3, rl.LIGHTGRAY)
+}
+
+slider_update_h :: proc(slider: ^Slider, mouse: rl.Vector2) {
     rect := slider.rect
     if rl.CheckCollisionPointRec(mouse, rect) && rl.IsMouseButtonPressed(.LEFT) {
         slider.active = true
@@ -28,6 +38,24 @@ slider_update :: proc(slider: ^Slider, mouse: rl.Vector2) {
     if slider.active {
         pos := math.clamp(mouse.x, f32(rect.x), f32(rect.x + rect.width)) - rect.x
         slider.val = pos / f32(rect.width)
+    }
+
+    if rl.CheckCollisionPointRec(mouse, rect) && rl.IsMouseButtonPressed(.RIGHT) {
+        slider.val = slider.default
+    }
+}
+
+slider_update_v :: proc(slider: ^Slider, mouse: rl.Vector2) {
+    rect := slider.rect
+    if rl.CheckCollisionPointRec(mouse, rect) && rl.IsMouseButtonPressed(.LEFT) {
+        slider.active = true
+    } else if rl.IsMouseButtonReleased(.LEFT) {
+        slider.active = false
+    }
+
+    if slider.active {
+        pos := math.clamp(mouse.y, f32(rect.y), f32(rect.y + rect.height)) - rect.y
+        slider.val = 1 - (pos / f32(rect.height))
     }
 
     if rl.CheckCollisionPointRec(mouse, rect) && rl.IsMouseButtonPressed(.RIGHT) {
@@ -92,10 +120,59 @@ level_slider := Slider{
     default = 1.0,
 }
 
+h_sliders := [?]^Slider{
+    &unison_slider,
+    &detune_slider,
+    &octave_slider,
+    &semitone_slider,
+    &phase_slider,
+    &level_slider,
+}
+
+osc1_level_slider := Slider{
+    rect = {230, 45, 30, 100},
+    val = 1.0,
+    default = 1.0,
+}
+
+osc2_level_slider := Slider{
+    rect = {270, 45, 30, 100},
+    val = 1.0,
+    default = 1.0,
+}
+
+osc3_level_slider := Slider{
+    rect = {310, 45, 30, 100},
+    val = 1.0,
+    default = 1.0,
+}
+
+osc_level_sliders := [3]^Slider{
+    &osc1_level_slider,
+    &osc2_level_slider,
+    &osc3_level_slider,
+}
+
+gain_level_slider := Slider{
+    rect = {350, 15, 60, 130},
+    val = 1.0,
+    default = 1.0,
+}
+
 osc1_rect := rl.Rectangle{10, 550, 67, 30}
 osc2_rect := rl.Rectangle{10 + 67, 550, 66, 30}
 osc3_rect := rl.Rectangle{10 + 67 + 66, 550, 67, 30}
 osc_rects := [3]rl.Rectangle{osc1_rect, osc2_rect, osc3_rect}
+
+osc1_mute_rect := rl.Rectangle{230, 15, 30, 20}
+osc2_mute_rect := rl.Rectangle{270, 15, 30, 20}
+osc3_mute_rect := rl.Rectangle{310, 15, 30, 20}
+
+osc_mute_rects := [3]rl.Rectangle{
+    osc1_mute_rect,
+    osc2_mute_rect,
+    osc3_mute_rect,
+}
 
 set_ui_to_osc :: proc(synth: Synth, index: int) {
     unison_slider.val = f32(synth.oscs[index].unison.voices - 1) / 10.0
@@ -121,12 +198,22 @@ handle_input :: proc(synth: ^Synth) {
 }
 
 handle_ui_input :: proc(synth: ^Synth, mouse_pos: rl.Vector2) {
-    slider_update(&unison_slider, mouse_pos)
-    slider_update(&detune_slider, mouse_pos)
-    slider_update(&octave_slider, mouse_pos)
-    slider_update(&semitone_slider, mouse_pos)
-    slider_update(&phase_slider, mouse_pos)
-    slider_update(&level_slider, mouse_pos)
+    for h_slider, index in h_sliders {
+        slider_update_h(h_slider, mouse_pos)
+    }
+
+    for osc_slider, index in osc_level_sliders {
+        slider_update_v(osc_slider, mouse_pos)
+    }
+
+    slider_update_v(&gain_level_slider, mouse_pos)
+
+    for osc_mute_rect, index in osc_mute_rects {
+        if rl.CheckCollisionPointRec(mouse_pos, osc_mute_rect) && rl.IsMouseButtonPressed(.LEFT) {
+
+        }
+    }
+
     for wave in 0..<len(basic_wave_rects) {
         if rl.CheckCollisionPointRec(mouse_pos, basic_wave_rects[wave]) && rl.IsMouseButtonPressed(.LEFT) {
             synth.current_osc.base = Waveform(wave)
@@ -138,6 +225,12 @@ handle_ui_input :: proc(synth: ^Synth, mouse_pos: rl.Vector2) {
             synth.current_osc = &synth.oscs[index]
             synth.current_osc_index = index
             set_ui_to_osc(synth^, index)
+        }
+    }
+
+    for osc_mute_rect, index in osc_mute_rects {
+        if rl.CheckCollisionPointRec(mouse_pos, osc_mute_rect) && rl.IsMouseButtonPressed(.LEFT) {
+            synth.oscs[index].muted = !synth.oscs[index].muted
         }
     }
 }
@@ -155,9 +248,9 @@ draw_ui :: proc(synth: Synth) {
         value := basic_waveform_display(synth.current_osc.base, angle)
         display_lines[i] = {15.0 + f32(i)/f32(SEGMENT_SIZE) * 190.0, 10.0 + 50.0 - value * 45.0}
     }
-    rl.DrawLineStrip(raw_data(display_lines[:]), len(display_lines), {255, 0, 0, 255})
+    rl.DrawLineStrip(raw_data(display_lines[:]), len(display_lines), rl.RED)
 
-    rl.DrawRectangleLines(5, 5, 210, HEIGHT-10, {255, 255, 255, 255})
+    rl.DrawRectangleLinesEx({5, 5, 210, HEIGHT - 10}, 2.0, rl.WHITE)
 
     // Draw Waveform UIs
     SEGMENT :: 50
@@ -178,36 +271,28 @@ draw_ui :: proc(synth: Synth) {
         rl.DrawRectangleLinesEx(basic_wave_rects[wave], 1.0, border)
     }
 
+    for h_slider, index in h_sliders {
+        slider_draw_h(h_slider^)
+    }
+
     // Draw unison and detune sliders
     rl.DrawText("Unison:", 60, 160, 20, rl.WHITE)
     rl.DrawText(rl.TextFormat("%d", synth.current_osc.unison.voices), 140, 160, 20, rl.WHITE)
 
-    slider_draw(unison_slider)
-
     rl.DrawText("Detune:", 50, 220, 20, rl.WHITE)
     rl.DrawText(rl.TextFormat("%.2f", synth.current_osc.unison.detune), 130, 220, 20, rl.WHITE)
-
-    slider_draw(detune_slider)
 
     rl.DrawText("Octave:", 50, 280, 20, rl.WHITE)
     rl.DrawText(rl.TextFormat("%.2f", synth.current_osc.octave), 130, 280, 20, rl.WHITE)
 
-    slider_draw(octave_slider)
-
     rl.DrawText("Semitone:", 40, 340, 20, rl.WHITE)
     rl.DrawText(rl.TextFormat("%.2f", synth.current_osc.semitone), 135, 340, 20, rl.WHITE)
-
-    slider_draw(semitone_slider)
 
     rl.DrawText("Phase:", 50, 400, 20, rl.WHITE)
     rl.DrawText(rl.TextFormat("%.2f", synth.current_osc.phase), 120, 400, 20, rl.WHITE)
 
-    slider_draw(phase_slider)
-
     rl.DrawText("Level:", 50, 460, 20, rl.WHITE)
     rl.DrawText(rl.TextFormat("%.2f", synth.current_osc.level), 120, 460, 20, rl.WHITE)
-
-    slider_draw(level_slider)
 
     rl.DrawText("Oscillators", 50, 520, 20, rl.WHITE)
 
@@ -221,4 +306,26 @@ draw_ui :: proc(synth: Synth) {
         rl.DrawRectangleLinesEx(osc_rect, 2.0, border)
         rl.DrawText(rl.TextFormat("%d", index), text_positions[index], 550 + 5, 20, color)
     }
+
+    rl.DrawRectangleLinesEx({220, 5, 200, 180}, 2.0, rl.WHITE)
+
+    for osc_mute_rect, index in osc_mute_rects {
+        if synth.oscs[index].muted {
+            rl.DrawRectangleRec(osc_mute_rect, rl.BLUE)
+        }
+
+        rl.DrawRectangleLinesEx(osc_mute_rect, 1.0, rl.WHITE)
+        rl.DrawText("M", i32(osc_mute_rect.x) + 11, 20, 10, rl.WHITE)
+    }
+
+    for osc_slider in osc_level_sliders {
+        slider_draw_v(osc_slider^)
+    }
+
+    slider_draw_v(gain_level_slider)
+
+    rl.DrawText("1", 243, 155, 20, rl.WHITE)
+    rl.DrawText("2", 279, 155, 20, rl.WHITE)
+    rl.DrawText("3", 319, 155, 20, rl.WHITE)
+    rl.DrawText("GAIN", 356, 155, 20, rl.WHITE)
 }
