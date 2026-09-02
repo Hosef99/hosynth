@@ -8,7 +8,7 @@ WIDTH :: 900
 HEIGHT :: 600
 
 SAMPLE_RATE :: 48000
-BUFFER_SIZE :: 2048
+BUFFER_SIZE :: 1024
 
 C3 :: 130.8
 
@@ -83,8 +83,13 @@ main :: proc() {
             if osc_level_sliders[index].val == 0 {
                 osc.level = 0
             } else {
-                osc.level = db_to_ratio(slider_float(osc_level_sliders[index]^, -24, 3))
+                osc.level = db_to_ratio(slider_float(osc_level_sliders[index]^, -24, 0))
             }
+        }
+        if gain_level_slider.val == 0.0 {
+            synth.gain = 0.0
+        } else {
+            synth.gain = db_to_ratio(slider_float(gain_level_slider, -24.0, 0.0))
         }
 
         if rl.IsAudioStreamProcessed(audio.stream) {

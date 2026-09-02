@@ -10,11 +10,15 @@ Unison_Voice :: struct {
     phase: f32,
 }
 
+Note_Osc :: struct {
+    unison: [11]Unison_Voice,
+}
+
 Note :: struct {
     playing: bool,
     freq: f32,
 
-    unison: [11]Unison_Voice,
+    oscs: [3]Note_Osc,
     
     press_samples, release_samples: int,
     release_start_amp: f32,
@@ -93,12 +97,12 @@ detune_freq :: proc(freq, cents: f32) -> f32 {
 }
 
 set_note :: proc(note: ^Note, synth: ^Synth, buffer: ^[BUFFER_SIZE]f32) {
-    for &osc, index in synth.oscs {
-        octave_mult := math.pow(2.0, osc.octave) * math.pow(2.0, osc.semitone / 12.0)
-        voices := osc.unison.voices
-        unison_gain := 1.0 / math.sqrt(f32(voices))
-        for i in 0..<BUFFER_SIZE {
-            amp := calc_note_amp(note^, synth.env)
+    for i in 0..<BUFFER_SIZE {
+        amp := calc_note_amp(note^, synth.env)
+        for &osc, index in synth.oscs {
+            octave_mult := math.pow(2.0, osc.octave) * math.pow(2.0, osc.semitone / 12.0)
+            voices := osc.unison.voices
+            unison_gain := 1.0 / math.sqrt(f32(voices))
             if osc.muted {
                 continue
             }
@@ -110,22 +114,22 @@ set_note :: proc(note: ^Note, synth: ^Synth, buffer: ^[BUFFER_SIZE]f32) {
 
                 phase_inc := freq * octave_mult / f32(SAMPLE_RATE)
 
-                sample := basic_waveform(osc.base, 2.0 * math.PI * note.unison[j].phase + osc.phase)
+                sample := basic_waveform(osc.base, 2.0 * math.PI * note.oscs[index].unison[j].phase + osc.phase)
 
                 buffer^[i] += sample * unison_gain * amp * osc.level
 
-                note.unison[j].phase += phase_inc
+                note.oscs[index].unison[j].phase += phase_inc
 
-                if note.unison[j].phase >= 1.0 {
-                    note.unison[j].phase -= 1.0
+                if note.oscs[index].unison[j].phase >= 1.0 {
+                    note.oscs[index].unison[j].phase -= 1.0
                 }
             }
+        }
 
-            if note.playing {
-                note.press_samples += 1
-            } else {
-                note.release_samples += 1
-            }
+        if note.playing {
+            note.press_samples += 1
+        } else {
+            note.release_samples += 1
         }
     }
 }
