@@ -155,8 +155,8 @@ osc_level_sliders := [3]^Slider{
 
 gain_level_slider := Slider{
     rect = {350, 15, 60, 130},
-    val = 1.0,
-    default = 1.0,
+    val = 0.3,
+    default = 0.3,
 }
 
 osc1_rect := rl.Rectangle{10, 550, 67, 30}
