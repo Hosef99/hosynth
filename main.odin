@@ -17,7 +17,6 @@ KEYBOARD :: [?]rl.KeyboardKey{.Q, .TWO, .W, .THREE, .E, .R, .FIVE, .T, .SIX, .Y,
 main :: proc() {
     e_piano := Envelope{20, 500, 0.70, 20}
     synth := Synth{
-        env = e_piano,
         gain = 0.4,
     }
 
@@ -91,6 +90,10 @@ main :: proc() {
         } else {
             synth.gain = db_to_ratio(slider_float(gain_level_slider, -24.0, 0.0))
         }
+        synth.current_osc.env.attack_time = slider_exp(a_slider, 10, 3000, 3)
+        synth.current_osc.env.decay_time = slider_exp(d_slider, 10, 3000, 3)
+        synth.current_osc.env.sustain_level = s_slider.val
+        synth.current_osc.env.release_time = slider_exp(r_slider, 10, 10000, 3)
 
         if rl.IsAudioStreamProcessed(audio.stream) {
             process_audio(audio, &synth)

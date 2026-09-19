@@ -77,6 +77,14 @@ slider_steps :: proc(slider: Slider, values: []f32) -> f32 {
     return values[index]
 }
 
+slider_exp :: proc(slider: Slider, min, max, exp: f32) -> f32 {
+    return (max - min) * math.pow(slider.val, exp) + min
+}
+
+slider_inv_exp :: proc(val, min, max, exp: f32) -> f32 {
+    return math.pow((val - min) / (max - min), 1.0 / exp)
+}
+
 sin_rect := rl.Rectangle{10, 115, 50, 30}
 square_rect := rl.Rectangle{10+50, 115, 50, 30}
 triangle_rect := rl.Rectangle{10+100, 115, 50, 30}
@@ -159,6 +167,41 @@ gain_level_slider := Slider{
     default = 0.3,
 }
 
+/*
+A: 10 - 3000 ms
+D: 10 - 3000 ms
+S: 0 - 1
+R: 10 - 10000 ms
+
+A, D, and R sliders should be exponential
+*/
+
+a_slider := Slider{
+    rect = {440, 45, 30, 100},
+    val = 0.3,
+    default = 0.3
+}
+
+d_slider := Slider{
+    rect = {480, 45, 30, 100},
+    val = 0.3,
+    default = 0.3
+}
+
+s_slider := Slider{
+    rect = {520, 45, 30, 100},
+    val = 0.3,
+    default = 0.3
+}
+
+r_slider := Slider{
+    rect = {560, 45, 30, 100},
+    val = 0.3,
+    default = 0.3
+}
+
+adsr_sliders := [4]^Slider{&a_slider, &d_slider, &s_slider, &r_slider}
+
 osc1_rect := rl.Rectangle{10, 550, 67, 30}
 osc2_rect := rl.Rectangle{10 + 67, 550, 66, 30}
 osc3_rect := rl.Rectangle{10 + 67 + 66, 550, 67, 30}
@@ -181,6 +224,10 @@ set_ui_to_osc :: proc(synth: Synth, index: int) {
     semitone_slider.val = (synth.oscs[index].semitone + 12) / 24.0
     phase_slider.val = synth.oscs[index].phase / 360.0
     level_slider.val = synth.oscs[index].level
+    adsr_sliders[0].val = slider_inv_exp(synth.oscs[index].env.attack_time, 10, 3000, 3)
+    adsr_sliders[1].val = slider_inv_exp(synth.oscs[index].env.decay_time, 10, 3000, 3)
+    adsr_sliders[2].val = synth.oscs[index].env.sustain_level
+    adsr_sliders[3].val = slider_inv_exp(synth.oscs[index].env.release_time, 10, 10000, 3)
 }
 
 handle_input :: proc(synth: ^Synth) {
@@ -190,7 +237,7 @@ handle_input :: proc(synth: ^Synth) {
             note.playing = true
             note.release_samples = 0
         } else if rl.IsKeyReleased(key) {
-            note.release_start_amp = calc_note_amp(note^, synth.env)
+            note.release_start_amp = calc_note_amp(note^, synth.current_osc.env)
             note.playing = false
             note.press_samples = 0
         }
@@ -207,6 +254,10 @@ handle_ui_input :: proc(synth: ^Synth, mouse_pos: rl.Vector2) {
     }
 
     slider_update_v(&gain_level_slider, mouse_pos)
+
+    for slider, index in adsr_sliders {
+        slider_update_v(slider, mouse_pos)
+    }
 
     for osc_mute_rect, index in osc_mute_rects {
         if rl.CheckCollisionPointRec(mouse_pos, osc_mute_rect) && rl.IsMouseButtonPressed(.LEFT) {
@@ -304,7 +355,7 @@ draw_ui :: proc(synth: Synth) {
         border := rl.GREEN if selected else rl.WHITE
 
         rl.DrawRectangleLinesEx(osc_rect, 2.0, border)
-        rl.DrawText(rl.TextFormat("%d", index), text_positions[index], 550 + 5, 20, color)
+        rl.DrawText(rl.TextFormat("%d", index + 1), text_positions[index], 550 + 5, 20, color)
     }
 
     rl.DrawRectangleLinesEx({220, 5, 200, 180}, 2.0, rl.WHITE)
@@ -328,4 +379,22 @@ draw_ui :: proc(synth: Synth) {
     rl.DrawText("2", 279, 155, 20, rl.WHITE)
     rl.DrawText("3", 319, 155, 20, rl.WHITE)
     rl.DrawText("GAIN", 356, 155, 20, rl.WHITE)
+
+    rl.DrawRectangleLinesEx({430, 5, 170, 180}, 2.0, rl.WHITE)
+
+    rl.DrawText("A", 440 + 9, 15, 20, rl.WHITE)
+    rl.DrawText("D", 480 + 9, 15, 20, rl.WHITE)
+    rl.DrawText("S", 520 + 9, 15, 20, rl.WHITE)
+    rl.DrawText("R", 560 + 9, 15, 20, rl.WHITE)
+
+    for slider, index in adsr_sliders {
+        slider_draw_v(slider^)
+    }
+
+    rl.DrawText(rl.TextFormat("%.0f", synth.current_osc.env.attack_time), 445, 155, 10, rl.WHITE)
+    rl.DrawText(rl.TextFormat("%.0f", synth.current_osc.env.decay_time), 485, 155, 10, rl.WHITE)
+    rl.DrawText(rl.TextFormat("%.2f", synth.current_osc.env.sustain_level), 525, 155, 10, rl.WHITE)
+    rl.DrawText(rl.TextFormat("%.0f", synth.current_osc.env.release_time), 565, 155, 10, rl.WHITE)
+
+
 }

@@ -37,13 +37,13 @@ Oscillator :: struct {
     phase: f32,
     level: f32,
     muted: bool,
+    env: Envelope,
 }
 
 Synth :: struct {
     oscs: [3]Oscillator,
     current_osc: ^Oscillator,
     current_osc_index: int,
-    env: Envelope,
     notes: [len(KEYBOARD)]Note,
     gain: f32,
 }
@@ -57,6 +57,7 @@ default_osc :: proc() -> Oscillator {
         phase = 0,
         level = 1,
         muted = true,
+        env = {20, 500, 0.70, 20},
     }
 }
 
@@ -98,8 +99,8 @@ detune_freq :: proc(freq, cents: f32) -> f32 {
 
 set_note :: proc(note: ^Note, synth: ^Synth, buffer: ^[BUFFER_SIZE]f32) {
     for i in 0..<BUFFER_SIZE {
-        amp := calc_note_amp(note^, synth.env)
         for &osc, index in synth.oscs {
+            amp := calc_note_amp(note^, osc.env)
             octave_mult := math.pow(2.0, osc.octave) * math.pow(2.0, osc.semitone / 12.0)
             voices := osc.unison.voices
             unison_gain := 1.0 / math.sqrt(f32(voices))
